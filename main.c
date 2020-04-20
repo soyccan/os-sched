@@ -29,7 +29,7 @@ int main()
 
 	GG(procs = malloc((size_t)nproc * sizeof(struct process)), NULL);
 	for (int i = 0; i < nproc; i++) {
-		scanf("%7s %d %d", procs[i].name, &procs[i].ready_time,
+		scanf("%31s %d %d", procs[i].name, &procs[i].ready_time,
 		      &procs[i].runtime);
 	}
 	scheduler();

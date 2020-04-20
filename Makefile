@@ -2,10 +2,7 @@ CC := clang
 CFLAGS := -Wall -Wextra -Wconversion -std=gnu17
 LDFLAGS := -pthread -lrt
 OBJS := main.o sched.o pcntl.o cpures.o child.o
-FILES := Makefile main.c sched.c sched.h pcntl.c pcntl.h cpures.c cpures.h child.c common.h utils.h
-
-# dangerous
-CFLAGS += -O2
+FILES := Makefile main.c sched.c sched.h pcntl.c pcntl.h cpures.c cpures.h child.c common.h utils.h corr_out/ accuracy.py run.sh timeunit.py
 
 ifndef DEBUG
 	DEBUG := 1
@@ -14,6 +11,9 @@ ifeq ($(DEBUG), 1)
 	CFLAGS += -g
 else
 	CFLAGS += -DNDEBUG
+
+	# dangerous
+	CFLAGS += -O2
 endif
 
 .PHONY: all upload run clean

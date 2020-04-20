@@ -7,7 +7,14 @@
 #define PARENT_CPU 0
 #define CHILD_CPU 0
 
+// 1-99, higher value for higher priority
+// when set to 1 with SCHED_RR, our processes will have pri=-2
+// prior to those normal pri=20
+#define DEFAULT_PRI 1
+#define HIGH_PRI 10
+
 #define SYS_printk 439
+#define SYS_gettime 440
 
 #define TIME_UNIT()                                                            \
 	{                                                                      \
@@ -17,7 +24,7 @@
 	}
 
 struct process {
-	char name[8];
+	char name[32];
 	int ready_time;
 	int runtime;
 	pid_t pid; // pid is given when process is ready

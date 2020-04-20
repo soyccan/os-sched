@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
-// #include <semaphore.h>
 
 #include "utils.h"
 
@@ -16,7 +15,6 @@
 #define SHM_NAME "/osproj1"
 
 struct cpures {
-	// sem_t running; // running on CPU is exclusive
 	pthread_cond_t is_next; // conditional variable of (getpid() == next)
 	pthread_mutex_t mutex; // protect r/w on cpures
 	pid_t current; // let no-value be 0
