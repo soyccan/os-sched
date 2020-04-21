@@ -3,6 +3,7 @@
  */
 #define _GNU_SOURCE
 
+#include <assert.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -24,7 +25,7 @@ struct cpures {
 static struct cpures *cpures;
 
 /* called by parent (scheduler), should be called before calling schedule() */
-void cpures_init()
+void cpures_init(pid_t current)
 {
 	int fd;
 	G(fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0600));
@@ -34,7 +35,8 @@ void cpures_init()
 	   NULL);
 	G(close(fd));
 
-	cpures->current = cpures->next = 0;
+	cpures->current = current;
+	cpures->next = 0;
 
 	pthread_condattr_t at;
 	G(pthread_condattr_init(&at));
@@ -68,6 +70,9 @@ void cpures_destroy()
 void cpures_acquire()
 {
 	G(pthread_mutex_lock(&cpures->mutex));
+
+	if (getpid() == cpures->current)
+		return;
 	while (getpid() != cpures->next) {
 		G(pthread_cond_wait(&cpures->is_next, &cpures->mutex));
 	}
@@ -78,9 +83,12 @@ void cpures_acquire()
 	G(pthread_mutex_unlock(&cpures->mutex));
 }
 
-/* let next = 0 if don't know next */
 void cpures_release(pid_t next)
 {
+	assert(next != 0); // a non-running next will cause deadlock
+	if (next == 0)
+		return;
+
 	G(pthread_mutex_lock(&cpures->mutex));
 
 	if (getpid() != cpures->current) {
@@ -89,17 +97,6 @@ void cpures_release(pid_t next)
 	}
 
 	cpures->current = 0;
-	cpures->next = next;
-	G(pthread_cond_broadcast(&cpures->is_next));
-
-	G(pthread_mutex_unlock(&cpures->mutex));
-}
-
-/* can only be called by scheduler */
-void cpures_setnext(pid_t next)
-{
-	G(pthread_mutex_lock(&cpures->mutex));
-
 	cpures->next = next;
 	G(pthread_cond_broadcast(&cpures->is_next));
 

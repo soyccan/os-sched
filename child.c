@@ -33,6 +33,7 @@
 int main(int argc, char **argv)
 {
 	cpures_open();
+	cpures_acquire();
 
 	char buf[200];
 	long tms[4];
@@ -42,6 +43,7 @@ int main(int argc, char **argv)
 
 	syscall(SYS_gettime, &tms[0], &tms[1]);
 	DBG("launch %s %d, time=%ld.%09ld", name, getpid(), tms[0], tms[1]);
+	cpures_release(getppid()); // let scheduler run
 
 	for (int i = 0; i < runtime; i++) {
 		cpures_acquire();
@@ -51,12 +53,14 @@ int main(int argc, char **argv)
 		cpures_release(getppid()); // let scheduler run
 	}
 
+	cpures_acquire();
 	syscall(SYS_gettime, &tms[2], &tms[3]);
 	int n = 0;
 	snprintf(buf, sizeof buf, "[Project1] %d %ld.%09ld %ld.%09ld\n%n",
 		 getpid(), tms[0], tms[1], tms[2], tms[3], &n);
 	G(syscall(SYS_printk, buf, n));
 	DBG("%s finish, time=%ld.%09ld", name, tms[2], tms[3]);
+	cpures_release(getppid()); // let scheduler run
 
 	return 0;
 }

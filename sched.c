@@ -44,6 +44,8 @@ static int proc_launch(const char *name, int runtime)
 		buf[10] = '\0';
 		G(execl("./child", "./child", name, buf, NULL));
 	}
+	cpures_release(pid);
+	cpures_acquire();
 	return pid;
 }
 
@@ -115,6 +117,8 @@ void scheduler()
 	proc_elevate_priority(0, DEFAULT_PRI);
 	proc_assign_cpu(0, PARENT_CPU);
 
+	cpures_init(getpid());
+
 	// sort by ready time
 	qsort(procs, (size_t)nproc, sizeof(procs[0]), cmp);
 
@@ -122,10 +126,6 @@ void scheduler()
 		procs[i].pid = 0;
 	}
 	dummy_child = proc_launch("dummy", INT_MAX);
-
-	cpures_init();
-	cpures_setnext(getpid());
-	cpures_acquire();
 
 	int finished = 0;
 	running = -1;
@@ -144,6 +144,8 @@ void scheduler()
 		// check finished
 		if (running != -1 && procs[running].runtime == 0) {
 			DBG("%s finish", procs[running].name);
+			cpures_release(procs[running].pid);
+			cpures_acquire();
 			running = -1;
 			finished++;
 			if (finished == nproc) {
