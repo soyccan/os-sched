@@ -11,9 +11,6 @@ ifeq ($(DEBUG), 1)
 	CFLAGS += -g
 else
 	CFLAGS += -DNDEBUG
-
-	# dangerous
-	CFLAGS += -O2
 endif
 
 .PHONY: all upload run clean

@@ -44,8 +44,8 @@ static int proc_launch(const char *name, int runtime)
 		buf[10] = '\0';
 		G(execl("./child", "./child", name, buf, NULL));
 	}
-	cpures_release(pid);
-	cpures_acquire();
+	// cpures_release(pid);
+	// cpures_acquire();
 	return pid;
 }
 
@@ -56,54 +56,52 @@ static inline int is_ready(int i)
 
 static inline int get_next_proc()
 {
+	// it's important that this function runs for a fixed time
+	// so we try not to use short-circuit condition statement
+	int ret = -1;
 	if (policy == FIFO) {
 		for (int i = 0; i < nproc; i++) {
-			if (is_ready(i)) {
-				return i;
+			if (is_ready(i) & ret == -1) {
+				ret = i;
 			}
 		}
-		return -1;
 	} else if (policy == RR) {
 		if (running == -1) {
 			for (int i = 0; i < nproc; i++) {
-				if (is_ready(i)) {
+				if (is_ready(i) & ret == -1) {
 					last_cs_time = current_time;
-					return i;
+					ret = i;
 				}
 			}
-			return -1;
 		} else if ((current_time - last_cs_time) % 500 == 0) {
 			for (int i = (running + 1) % nproc; i != running;
 			     i = (i + 1) % nproc) {
-				if (is_ready(i)) {
+				if (is_ready(i) & ret == -1) {
 					last_cs_time = current_time;
-					return i;
+					ret = i;
 				}
 			}
-			if (procs[running].runtime > 0) {
+			if (ret == -1 & procs[running].runtime > 0) {
 				last_cs_time = current_time;
-				return running;
-			} else
-				return -1;
+				ret = running;
+			}
 		} else {
-			return running;
+			ret = running;
 		}
 	} else if (policy == SJF && running != -1) {
-		return running;
+		ret = running;
 	} else if (policy == SJF || policy == PSJF) {
-		int ret = -1;
 		for (int i = 0; i < nproc; i++) {
-			if (is_ready(i) &&
-			    (ret == -1 ||
+			if (is_ready(i) &
+			    (ret == -1 |
 			     procs[i].runtime < procs[ret].runtime)) {
 				ret = i;
 			}
 		}
-		return ret;
 	} else {
 		perror("unsupported scheduling policy");
 	}
-	return -1;
+	return ret;
 }
 
 static inline int cmp(const void *x, const void *y)
@@ -132,6 +130,7 @@ void scheduler()
 	current_time = 0;
 	last_cs_time = 0;
 	while (1) {
+#ifndef NDEBUG
 		if (current_time % 100 == 0) {
 			if (running != -1)
 				DBG("running %s %d, time=%d",
@@ -140,12 +139,13 @@ void scheduler()
 			else
 				DBG("running nothing, time=%d", current_time);
 		}
+#endif
 
 		// check finished
 		if (running != -1 && procs[running].runtime == 0) {
 			DBG("%s finish", procs[running].name);
-			cpures_release(procs[running].pid);
-			cpures_acquire();
+			// cpures_release(procs[running].pid);
+			// cpures_acquire();
 			running = -1;
 			finished++;
 			if (finished == nproc) {
