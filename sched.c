@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #include "common.h"
 #include "utils.h"
@@ -36,16 +37,42 @@ static int proc_launch(const char *name, int runtime)
 	int pid;
 	G(pid = fork());
 	if (pid == 0) {
-		proc_elevate_priority(0, DEFAULT_PRI);
-		proc_assign_cpu(0, CHILD_CPU);
+		/* child */
 
-		char buf[11];
-		snprintf(buf, sizeof(buf), "%d", runtime);
-		buf[10] = '\0';
-		G(execl("./child", "./child", name, buf, NULL));
+		cpures_open();
+		cpures_acquire();
+
+		char buf[200];
+		long tms[4];
+
+		syscall(SYS_gettime, &tms[0], &tms[1]);
+		DBG("launch %s %d, time=%ld.%09ld", name, getpid(), tms[0],
+		    tms[1]);
+		cpures_release(getppid()); // let scheduler run
+
+		for (int i = 0; i < runtime; i++) {
+			cpures_acquire();
+			if (i % 100 == 0)
+				DBG("%s runnning %d-th unit", name, i);
+			TIME_UNIT();
+			cpures_release(getppid()); // let scheduler run
+		}
+
+		cpures_acquire();
+		syscall(SYS_gettime, &tms[2], &tms[3]);
+		int n = 0;
+		snprintf(buf, sizeof buf,
+			 "[Project1] %d %ld.%09ld %ld.%09ld\n%n", getpid(),
+			 tms[0], tms[1], tms[2], tms[3], &n);
+		G(syscall(SYS_printk, buf, n));
+		DBG("%s finish, time=%ld.%09ld", name, tms[2], tms[3]);
+		cpures_release(getppid()); // let scheduler run
+
+		_exit(0);
 	}
-	// cpures_release(pid);
-	// cpures_acquire();
+	proc_assign_cpu(pid, CHILD_CPU);
+	cpures_release(pid);
+	cpures_acquire();
 	return pid;
 }
 
@@ -56,52 +83,54 @@ static inline int is_ready(int i)
 
 static inline int get_next_proc()
 {
-	// it's important that this function runs for a fixed time
-	// so we try not to use short-circuit condition statement
-	int ret = -1;
 	if (policy == FIFO) {
 		for (int i = 0; i < nproc; i++) {
-			if (is_ready(i) & ret == -1) {
-				ret = i;
+			if (is_ready(i)) {
+				return i;
 			}
 		}
+		return -1;
 	} else if (policy == RR) {
 		if (running == -1) {
 			for (int i = 0; i < nproc; i++) {
-				if (is_ready(i) & ret == -1) {
+				if (is_ready(i)) {
 					last_cs_time = current_time;
-					ret = i;
+					return i;
 				}
 			}
+			return -1;
 		} else if ((current_time - last_cs_time) % 500 == 0) {
 			for (int i = (running + 1) % nproc; i != running;
 			     i = (i + 1) % nproc) {
-				if (is_ready(i) & ret == -1) {
+				if (is_ready(i)) {
 					last_cs_time = current_time;
-					ret = i;
+					return i;
 				}
 			}
-			if (ret == -1 & procs[running].runtime > 0) {
+			if (procs[running].runtime > 0) {
 				last_cs_time = current_time;
-				ret = running;
-			}
+				return running;
+			} else
+				return -1;
 		} else {
-			ret = running;
+			return running;
 		}
 	} else if (policy == SJF && running != -1) {
-		ret = running;
+		return running;
 	} else if (policy == SJF || policy == PSJF) {
+		int ret = -1;
 		for (int i = 0; i < nproc; i++) {
-			if (is_ready(i) &
-			    (ret == -1 |
+			if (is_ready(i) &&
+			    (ret == -1 ||
 			     procs[i].runtime < procs[ret].runtime)) {
 				ret = i;
 			}
 		}
+		return ret;
 	} else {
 		perror("unsupported scheduling policy");
 	}
-	return ret;
+	return -1;
 }
 
 static inline int cmp(const void *x, const void *y)
@@ -110,10 +139,23 @@ static inline int cmp(const void *x, const void *y)
 	       ((struct process *)y)->ready_time;
 }
 
+static void why_the_fucking_sigsuspend_returns_negative_1(int signo)
+{
+}
+
 void scheduler()
 {
 	proc_elevate_priority(0, DEFAULT_PRI);
 	proc_assign_cpu(0, PARENT_CPU);
+
+	struct sigaction sigact; // TODO: need to initialize?
+	sigact.sa_handler = why_the_fucking_sigsuspend_returns_negative_1;
+	sigaction(SIGUSR1, &sigact, NULL);
+
+	sigset_t sigset;
+	G(sigemptyset(&sigset));
+	G(sigaddset(&sigset, SIGUSR1));
+	G(sigprocmask(SIG_BLOCK, &sigset, NULL));
 
 	cpures_init(getpid());
 
@@ -144,8 +186,9 @@ void scheduler()
 		// check finished
 		if (running != -1 && procs[running].runtime == 0) {
 			DBG("%s finish", procs[running].name);
-			// cpures_release(procs[running].pid);
-			// cpures_acquire();
+			cpures_release(procs[running].pid);
+			cpures_acquire();
+
 			running = -1;
 			finished++;
 			if (finished == nproc) {

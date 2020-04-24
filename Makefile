@@ -34,7 +34,7 @@ run: demo child
 demo: main.o sched.o pcntl.o cpures.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-child: child.o cpures.o
+child: child.o cpures.o pcntl.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 clean:

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <signal.h>
 
 #include "common.h"
 #include "cpures.h"
@@ -30,8 +31,16 @@
 // 	return (int)ret;
 // }
 
+static void why_the_fucking_sigsuspend_returns_negative_1(int signo)
+{
+}
+
 int main(int argc, char **argv)
 {
+	struct sigaction sigact; // TODO: need to initialize?
+	sigact.sa_handler = why_the_fucking_sigsuspend_returns_negative_1;
+	sigaction(SIGUSR1, &sigact, NULL);
+
 	cpures_open();
 	// cpures_acquire();
 

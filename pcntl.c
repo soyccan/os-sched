@@ -24,5 +24,9 @@ void proc_elevate_priority(pid_t pid, int priority)
 	struct sched_param param;
 	param.sched_priority =
 		priority; // 1-99, higher value for higher priority
-	G(sched_setscheduler(pid, SCHED_RR, &param));
+	G(sched_setscheduler(pid, SCHED_FIFO, &param));
+
+	// struct timespec p;
+	// sched_rr_get_interval(0, &p);
+	// DBG("time slice: %d.%09d", p.tv_sec, p.tv_nsec);
 }

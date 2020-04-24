@@ -8,8 +8,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "utils.h"
+#include "pcntl.h"
+#include "common.h"
 
 #define DBG_ROLE "CPURES"
 
@@ -69,36 +72,60 @@ void cpures_destroy()
 
 void cpures_acquire()
 {
-	G(pthread_mutex_lock(&cpures->mutex));
+	// G(pthread_mutex_lock(&cpures->mutex));
 
-	if (getpid() == cpures->current)
-		return;
-	while (getpid() != cpures->next) {
-		G(pthread_cond_wait(&cpures->is_next, &cpures->mutex));
-	}
+	// if (getpid() == cpures->current)
+	// 	return;
+	// while (getpid() != cpures->next) {
+	// 	G(pthread_cond_wait(&cpures->is_next, &cpures->mutex));
+	// }
 
-	G(cpures->current = getpid());
-	cpures->next = 0; // ensure mutual exclusion
+	// G(cpures->current = getpid());
+	// cpures->next = 0; // ensure mutual exclusion
 
-	G(pthread_mutex_unlock(&cpures->mutex));
+	// G(pthread_mutex_unlock(&cpures->mutex));
+
+	sigset_t s;
+	G(sigemptyset(&s));
+	sigsuspend(&s);
 }
 
 void cpures_release(pid_t next)
 {
-	assert(next != 0); // a non-running next will cause deadlock
-	if (next == 0)
-		return;
+	// assert(next != 0); // a non-running next will cause deadlock
+	// if (next == 0)
+	// 	return;
 
-	G(pthread_mutex_lock(&cpures->mutex));
+	// G(pthread_mutex_lock(&cpures->mutex));
 
-	if (getpid() != cpures->current) {
-		G(pthread_mutex_unlock(&cpures->mutex));
-		return;
-	}
+	// if (getpid() != cpures->current) {
+	// 	G(pthread_mutex_unlock(&cpures->mutex));
+	// 	return;
+	// }
 
-	cpures->current = 0;
-	cpures->next = next;
-	G(pthread_cond_broadcast(&cpures->is_next));
+	// cpures->current = 0;
+	// cpures->next = next;
+	// G(pthread_cond_broadcast(&cpures->is_next));
 
-	G(pthread_mutex_unlock(&cpures->mutex));
+	// G(pthread_mutex_unlock(&cpures->mutex));
+
+	// sigset_t t;
+	// sigprocmask(SIG_BLOCK, NULL, &t);
+	// for (int i = 1; i <= 31; i++) {
+	// 	struct sigaction s;
+	// 	sigaction(i, NULL, &s);
+	// 	if (s.sa_handler == SIG_DFL)
+	// 		DBG("signal action of %i is default", i);
+	// 	else if (s.sa_handler == SIG_IGN)
+	// 		DBG("signal action of %i is ignore", i);
+	// 	else
+	// 		DBG("signal action of %i is %p", i, s.sa_handler);
+
+	// 	if (sigismember(&t, i))
+	// 		DBG("signal maks of %d is blocked", i);
+	// }
+
+	proc_elevate_priority(0, DEFAULT_PRI);
+	proc_elevate_priority(next, HIGH_PRI);
+	kill(next, SIGUSR1);
 }
