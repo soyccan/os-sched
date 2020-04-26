@@ -1,4 +1,5 @@
 import sys
+import math
 
 time_unit = float(open('timeunit').read())
 
@@ -45,6 +46,7 @@ for i, l in enumerate(cor.readlines()):
     sse += (result[i]['st'] - st_u)**2
     sse += (result[i]['en'] - en_u)**2
 sse /= m*2
+sse = math.sqrt(sse)
 print(f'{sse=}')
 
 # print correct output in time unit
