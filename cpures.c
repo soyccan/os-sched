@@ -30,44 +30,44 @@ static struct cpures *cpures;
 /* called by parent (scheduler), should be called before calling schedule() */
 void cpures_init(pid_t current)
 {
-	int fd;
-	G(fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0600));
-	G(ftruncate(fd, sizeof(struct cpures)));
-	GG(cpures = mmap(NULL, sizeof(struct cpures), PROT_READ | PROT_WRITE,
-			 MAP_SHARED, fd, 0),
-	   NULL);
-	G(close(fd));
+	// int fd;
+	// G(fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0600));
+	// G(ftruncate(fd, sizeof(struct cpures)));
+	// GG(cpures = mmap(NULL, sizeof(struct cpures), PROT_READ | PROT_WRITE,
+	// 		 MAP_SHARED, fd, 0),
+	//    NULL);
+	// G(close(fd));
 
-	cpures->current = current;
-	cpures->next = 0;
+	// cpures->current = current;
+	// cpures->next = 0;
 
-	pthread_condattr_t at;
-	G(pthread_condattr_init(&at));
-	G(pthread_condattr_setpshared(&at, PTHREAD_PROCESS_SHARED));
-	G(pthread_cond_init(&cpures->is_next, &at));
+	// pthread_condattr_t at;
+	// G(pthread_condattr_init(&at));
+	// G(pthread_condattr_setpshared(&at, PTHREAD_PROCESS_SHARED));
+	// G(pthread_cond_init(&cpures->is_next, &at));
 
-	pthread_mutexattr_t att;
-	G(pthread_mutexattr_init(&att));
-	G(pthread_mutexattr_setpshared(&att, PTHREAD_PROCESS_SHARED));
-	G(pthread_mutex_init(&cpures->mutex, &att));
+	// pthread_mutexattr_t att;
+	// G(pthread_mutexattr_init(&att));
+	// G(pthread_mutexattr_setpshared(&att, PTHREAD_PROCESS_SHARED));
+	// G(pthread_mutex_init(&cpures->mutex, &att));
 }
 
 /* called by child */
 void cpures_open()
 {
-	int fd;
-	G(fd = shm_open(SHM_NAME, O_RDWR, 0));
-	GG(cpures = mmap(NULL, sizeof(struct cpures), PROT_READ | PROT_WRITE,
-			 MAP_SHARED, fd, 0),
-	   NULL);
-	G(close(fd));
+	// int fd;
+	// G(fd = shm_open(SHM_NAME, O_RDWR, 0));
+	// GG(cpures = mmap(NULL, sizeof(struct cpures), PROT_READ | PROT_WRITE,
+	// 		 MAP_SHARED, fd, 0),
+	//    NULL);
+	// G(close(fd));
 }
 
 /* called by who init */
 void cpures_destroy()
 {
-	G(munmap(cpures, sizeof(struct cpures)));
-	G(shm_unlink(SHM_NAME));
+	// G(munmap(cpures, sizeof(struct cpures)));
+	// G(shm_unlink(SHM_NAME));
 }
 
 void cpures_acquire()

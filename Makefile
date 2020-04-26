@@ -10,7 +10,7 @@ endif
 ifeq ($(DEBUG), 1)
 	CFLAGS += -g
 else
-	CFLAGS += -DNDEBUG
+	CFLAGS += -DNDEBUG -O2
 endif
 
 .PHONY: all upload run clean

@@ -19,11 +19,12 @@ void proc_assign_cpu(pid_t pid, int cpu)
 	G(sched_setaffinity(pid, sizeof(cpu_set_t), &mask));
 }
 
+/* priority: 1-99, higher value for higher priority
+ */
 void proc_elevate_priority(pid_t pid, int priority)
 {
 	struct sched_param param;
-	param.sched_priority =
-		priority; // 1-99, higher value for higher priority
+	param.sched_priority = priority;
 	G(sched_setscheduler(pid, SCHED_FIFO, &param));
 
 	// struct timespec p;

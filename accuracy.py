@@ -11,9 +11,6 @@ m = n
 
 result = []
 
-print()
-print(sys.argv[1])
-
 # get data from dmesg
 for line in reversed(open('/var/log/kern.log').readlines()):
     if '[Project1]' in line:
@@ -47,7 +44,8 @@ for i, l in enumerate(cor.readlines()):
     sse += (result[i]['en'] - en_u)**2
 sse /= m*2
 sse = math.sqrt(sse)
-print(f'{sse=}')
+print('----------------')
+print(f'{sys.argv[1]} {sse=}')
 
 # print correct output in time unit
 print('correct output:')
@@ -57,7 +55,7 @@ for l in cor.readlines():
     st, en = map(int, l.split(' '))
     if ori == -1:
         ori = st
-    print('', st-ori, en-ori)
+    print(' ', st-ori, en-ori)
 
 # print program output in time unit
 print('program output:')

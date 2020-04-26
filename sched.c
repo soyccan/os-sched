@@ -38,7 +38,10 @@ static int proc_launch(const char *name, int runtime)
 	G(pid = fork());
 	if (pid == 0) {
 		/* child */
+#undef DBG_ROLE
+#define DBG_ROLE "CHILD"
 
+		DBG("child just forked %s", name);
 		cpures_open();
 		cpures_acquire();
 
@@ -52,8 +55,8 @@ static int proc_launch(const char *name, int runtime)
 
 		for (int i = 0; i < runtime; i++) {
 			cpures_acquire();
-			if (i % 100 == 0)
-				DBG("%s runnning %d-th unit", name, i);
+			// if (i % 100 == 0)
+			// 	DBG("%s runnning %d-th unit", name, i);
 			TIME_UNIT();
 			cpures_release(getppid()); // let scheduler run
 		}
@@ -69,7 +72,10 @@ static int proc_launch(const char *name, int runtime)
 		cpures_release(getppid()); // let scheduler run
 
 		_exit(0);
+#undef DBG_ROLE
+#define DBG_ROLE "SCHED"
 	}
+	DBG("forked child %s", name);
 	proc_assign_cpu(pid, CHILD_CPU);
 	cpures_release(pid);
 	cpures_acquire();
@@ -84,7 +90,8 @@ static inline int is_ready(int i)
 static inline int get_next_proc()
 {
 	if (policy == FIFO) {
-		for (int i = 0; i < nproc; i++) {
+		int a = running == -1 ? 0 : running;
+		for (int i = a; i < nproc; i++) {
 			if (is_ready(i)) {
 				return i;
 			}
@@ -113,10 +120,10 @@ static inline int get_next_proc()
 			} else
 				return -1;
 		} else {
-			return running;
+			return procs[running].runtime > 0 ? running : -1;
 		}
 	} else if (policy == SJF && running != -1) {
-		return running;
+		return procs[running].runtime > 0 ? running : -1;
 	} else if (policy == SJF || policy == PSJF) {
 		int ret = -1;
 		for (int i = 0; i < nproc; i++) {
@@ -150,7 +157,7 @@ void scheduler()
 
 	struct sigaction sigact; // TODO: need to initialize?
 	sigact.sa_handler = why_the_fucking_sigsuspend_returns_negative_1;
-	sigaction(SIGUSR1, &sigact, NULL);
+	G(sigaction(SIGUSR1, &sigact, NULL));
 
 	sigset_t sigset;
 	G(sigemptyset(&sigset));
@@ -185,11 +192,12 @@ void scheduler()
 
 		// check finished
 		if (running != -1 && procs[running].runtime == 0) {
+			// NOTE: `running` keeps its value until get_next_proc
+
 			DBG("%s finish", procs[running].name);
 			cpures_release(procs[running].pid);
 			cpures_acquire();
 
-			running = -1;
 			finished++;
 			if (finished == nproc) {
 				break;
@@ -209,8 +217,7 @@ void scheduler()
 		}
 
 		// check waiting process
-		int next = get_next_proc();
-		assert(!(next != running && next == -1));
+		int next = get_next_proc(); // may be -1
 		if (next != running) {
 			// will context switch later
 			DBG("context switch from %d %s %d to %d %s %d", running,
