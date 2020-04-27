@@ -1,7 +1,8 @@
 CC := clang
 CFLAGS := -Wall -Wextra -Wconversion -std=gnu17
 LDFLAGS := -pthread -lrt
-OBJS := main.o sched.o pcntl.o cpures.o child.o
+OBJS := main.o sched.o pcntl.o cpures.o
+deps := $(OBJS:%.o=.%.o.d)
 FILES := Makefile main.c sched.c sched.h pcntl.c pcntl.h cpures.c cpures.h child.c common.h utils.h corr_out/ accuracy.py run.sh timeunit.py
 
 ifndef DEBUG
@@ -19,23 +20,25 @@ all:
 ifeq ($(shell hostname), soyccanmac.local)
 	$(MAKE) upload
 else
-	$(MAKE) demo child
+	$(MAKE) demo
 endif
 
 upload: $(FILES)
 	scp -P 9455 -r $(FILES) soyccan@bravo.nctu.me:/home/soyccan/Documents/osproj1/src
 
-run: demo child
+run: demo
 	./demo
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $^
+	$(CC) $(CFLAGS) -c -o $@ -MMD -MF .$@.d $<
 
-demo: main.o sched.o pcntl.o cpures.o
+demo: main.o sched.o cpures.o pcntl.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-child: child.o cpures.o pcntl.o
+child: child.o cpures.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 clean:
 	rm -rf $(OBJS) demo child
+
+-include $(deps)
