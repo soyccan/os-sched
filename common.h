@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 #define PARENT_CPU 0
-#define CHILD_CPU 1
+#define CHILD_CPU 0
 
 // 1-99, higher value for higher priority
 // when set to 1 with SCHED_RR, our processes will have pri=-2

@@ -26,6 +26,8 @@ enum SchedulePolicy policy;
 static pid_t dummy_child;
 // when CPU has to be idle, run dummy child to ensure the idle time
 // has approximate time unit as the others
+static int last_run;
+// this is set after running is done
 static int running;
 // procs[running] is the running job, -1 for none
 static int current_time;
@@ -99,10 +101,20 @@ static inline int get_next_proc()
 		return -1;
 	} else if (policy == RR) {
 		if (running == -1) {
-			for (int i = 0; i < nproc; i++) {
-				if (is_ready(i)) {
-					last_cs_time = current_time;
-					return i;
+			if (last_run == -1) {
+				for (int i = 0; i < nproc; i++) {
+					if (is_ready(i)) {
+						last_cs_time = current_time;
+						return i;
+					}
+				}
+			} else {
+				for (int i = (last_run + 1) % nproc;
+				     i != last_run; i = (i + 1) % nproc) {
+					if (is_ready(i)) {
+						last_cs_time = current_time;
+						return i;
+					}
 				}
 			}
 			return -1;
@@ -114,16 +126,16 @@ static inline int get_next_proc()
 					return i;
 				}
 			}
-			if (procs[running].runtime > 0) {
-				last_cs_time = current_time;
-				return running;
-			} else
-				return -1;
+			assert(procs[running].runtime > 0);
+			last_cs_time = current_time;
+			return running;
 		} else {
-			return procs[running].runtime > 0 ? running : -1;
+			assert(procs[running].runtime > 0);
+			return running;
 		}
 	} else if (policy == SJF && running != -1) {
-		return procs[running].runtime > 0 ? running : -1;
+		assert(procs[running].runtime > 0);
+		return running;
 	} else if (policy == SJF || policy == PSJF) {
 		int ret = -1;
 		for (int i = 0; i < nproc; i++) {
@@ -155,7 +167,7 @@ void scheduler()
 	proc_elevate_priority(0, DEFAULT_PRI);
 	proc_assign_cpu(0, PARENT_CPU);
 
-	struct sigaction sigact; // TODO: need to initialize?
+	struct sigaction sigact = { 0 }; // TODO: need to initialize?
 	sigact.sa_handler = why_the_fucking_sigsuspend_returns_negative_1;
 	G(sigaction(SIGUSR1, &sigact, NULL));
 
@@ -175,29 +187,19 @@ void scheduler()
 	dummy_child = proc_launch("dummy", INT_MAX);
 
 	int finished = 0;
-	running = -1;
+	last_run = running = -1;
 	current_time = 0;
 	last_cs_time = 0;
 	while (1) {
-#ifndef NDEBUG
-		if (current_time % 100 == 0) {
-			if (running != -1)
-				DBG("running %s %d, time=%d",
-				    procs[running].name, procs[running].pid,
-				    current_time);
-			else
-				DBG("running nothing, time=%d", current_time);
-		}
-#endif
-
 		// check finished
 		if (running != -1 && procs[running].runtime == 0) {
-			// NOTE: `running` keeps its value until get_next_proc
-
-			DBG("%s finish", procs[running].name);
+			DBG("%s finish, time=%d", procs[running].name,
+			    current_time);
 			cpures_release(procs[running].pid);
 			cpures_acquire();
 
+			last_run = running;
+			running = -1;
 			finished++;
 			if (finished == nproc) {
 				break;
@@ -223,10 +225,21 @@ void scheduler()
 			DBG("context switch from %d %s %d to %d %s %d", running,
 			    procs[running].name, procs[running].pid, next,
 			    procs[next].name, procs[next].pid);
+			last_run = running;
+			running = next;
 		}
-		running = next;
 
 		// run by one time unit
+#ifndef NDEBUG
+		if (current_time % 100 == 0) {
+			if (running != -1)
+				DBG("running %s %d, time=%d",
+				    procs[running].name, procs[running].pid,
+				    current_time);
+			else
+				DBG("running nothing, time=%d", current_time);
+		}
+#endif
 		if (running != -1) {
 			// context switch to run the specified child
 			cpures_release(procs[running].pid);

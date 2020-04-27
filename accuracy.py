@@ -35,13 +35,16 @@ result.sort(key=lambda x: x['name'])
 
 # calc accuracy by sum of squared error
 cor.seek(0, 0)
+ori_u = -1
 sse = 0
 for i, l in enumerate(cor.readlines()):
     st_u, en_u = map(float, l.split(' '))
+    if ori_u == -1:
+        ori_u = st_u
     result[i]['st'] = (result[i]['st'] - ori) // time_unit
     result[i]['en'] = (result[i]['en'] - ori) // time_unit
-    sse += (result[i]['st'] - st_u)**2
-    sse += (result[i]['en'] - en_u)**2
+    sse += (result[i]['st'] - st_u + ori_u)**2
+    sse += (result[i]['en'] - en_u + ori_u)**2
 sse /= m*2
 sse = math.sqrt(sse)
 print('----------------')

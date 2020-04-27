@@ -125,7 +125,7 @@ void cpures_release(pid_t next)
 	// 		DBG("signal maks of %d is blocked", i);
 	// }
 
-	proc_elevate_priority(0, DEFAULT_PRI);
-	proc_elevate_priority(next, HIGH_PRI);
+	//     proc_elevate_priority(0, DEFAULT_PRI);
+	//     proc_elevate_priority(next, HIGH_PRI);
 	kill(next, SIGUSR1);
 }
