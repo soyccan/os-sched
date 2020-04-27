@@ -53,17 +53,15 @@ static int proc_launch(const char *name, int runtime)
 		syscall(SYS_gettime, &tms[0], &tms[1]);
 		DBG("launch %s %d, time=%ld.%09ld", name, getpid(), tms[0],
 		    tms[1]);
-		cpures_release(getppid()); // let scheduler run
 
 		for (int i = 0; i < runtime; i++) {
-			cpures_acquire();
 			// if (i % 100 == 0)
 			// 	DBG("%s runnning %d-th unit", name, i);
 			TIME_UNIT();
 			cpures_release(getppid()); // let scheduler run
+			cpures_acquire();
 		}
 
-		cpures_acquire();
 		syscall(SYS_gettime, &tms[2], &tms[3]);
 		int n = 0;
 		snprintf(buf, sizeof buf,
@@ -79,8 +77,6 @@ static int proc_launch(const char *name, int runtime)
 	}
 	DBG("forked child %s", name);
 	proc_assign_cpu(pid, CHILD_CPU);
-	cpures_release(pid);
-	cpures_acquire();
 	return pid;
 }
 
@@ -247,8 +243,6 @@ void scheduler()
 			procs[running].runtime--;
 		} else {
 			TIME_UNIT();
-			// cpures_release(dummy_child);
-			// cpures_acquire();
 		}
 		current_time++;
 	}
