@@ -242,7 +242,8 @@ void scheduler()
 			cpures_acquire();
 			procs[running].runtime--;
 		} else {
-			TIME_UNIT();
+			cpures_release(dummy_child);
+			cpures_acquire();
 		}
 		current_time++;
 	}

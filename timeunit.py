@@ -21,7 +21,7 @@ for i in range(len(tm)-1):
 print('\n'.join(map(str, diff)))
 mu = sum(diff) / len(diff)
 print('avg =', mu)
-print('stdev = ', math.sqrt(sum((x - mu)**2 for x in diff)))
+print('stdev = ', math.sqrt(sum((x - mu)**2 for x in diff) / len(diff)))
 print('time unit =', mu / 500)
 
 open('timeunit', 'w').write(str(mu / 500))
