@@ -34,6 +34,9 @@ static int current_time;
 static int last_cs_time;
 // last time being context-switched due to time quantum in RR
 
+static int rrq[40]; // Round-Robin queue
+static int rrqn = 30, rrqh, rrqt; // head/tail of rrq
+
 static int proc_launch(const char *name, int runtime)
 {
 	int pid;
@@ -96,35 +99,23 @@ static inline int get_next_proc()
 		}
 		return -1;
 	} else if (policy == RR) {
-		if (running == -1) {
-			if (last_run == -1) {
-				for (int i = 0; i < nproc; i++) {
-					if (is_ready(i)) {
-						last_cs_time = current_time;
-						return i;
-					}
+		if (running == -1 || (current_time - last_cs_time) % 500 == 0) {
+			if (rrqt != rrqh) {
+				last_cs_time = current_time;
+
+				if (running != -1) {
+					rrq[rrqt] = running;
+					rrqt = (rrqt + 1) % rrqn;
 				}
+
+				int nxt = rrq[rrqh];
+				rrqh = (rrqh + 1) % rrqn;
+
+				assert(procs[nxt].runtime > 0);
+				return nxt;
 			} else {
-				for (int i = (last_run + 1) % nproc;
-				     i != last_run; i = (i + 1) % nproc) {
-					if (is_ready(i)) {
-						last_cs_time = current_time;
-						return i;
-					}
-				}
+				return running;
 			}
-			return -1;
-		} else if ((current_time - last_cs_time) % 500 == 0) {
-			for (int i = (running + 1) % nproc; i != running;
-			     i = (i + 1) % nproc) {
-				if (is_ready(i)) {
-					last_cs_time = current_time;
-					return i;
-				}
-			}
-			assert(procs[running].runtime > 0);
-			last_cs_time = current_time;
-			return running;
 		} else {
 			assert(procs[running].runtime > 0);
 			return running;
@@ -186,6 +177,7 @@ void scheduler()
 	last_run = running = -1;
 	current_time = 0;
 	last_cs_time = 0;
+	rrqh = rrqt = 0;
 	while (1) {
 		// check finished
 		if (running != -1 && procs[running].runtime == 0) {
@@ -211,6 +203,8 @@ void scheduler()
 				DBG("launched %s %d, ready=%d, current=%d",
 				    procs[i].name, procs[i].pid,
 				    procs[i].ready_time, current_time);
+				rrq[rrqt] = i;
+				rrqt = (rrqt + 1) % rrqn;
 			}
 		}
 
